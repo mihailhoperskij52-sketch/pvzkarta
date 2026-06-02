@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>ПВЗ Карта</title>
+<link rel="stylesheet" href="css/style.css">
+<script src="https://api-maps.yandex.ru/2.1/?apikey=cb7742d7-77ed-4d74-b496-02ecec14eb98&lang=ru_RU" type="text/javascript"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+</head>
+<body>
+
+<!-- MOBILE OVERLAY -->
+<div id="mobile-overlay" onclick="UI.closeMobileSidebar()"></div>
+
+<!-- SIDEBAR -->
+<div id="sidebar">
+  <div id="sidebar-header">
+    <div>
+      <h1>📦 ПВЗ Карта</h1>
+      <p id="header-count">Загрузка...</p>
+    </div>
+    <div id="auth-indicator"></div>
+  </div>
+
+  <div id="tabs">
+    <button class="tab-btn active" onclick="UI.switchTab('list')">Список</button>
+    <button class="tab-btn" id="admin-tab-btn" onclick="UI.switchTab('admin')" style="display:none">Админка</button>
+  </div>
+
+  <!-- LIST PANEL -->
+  <div id="panel-list" class="panel active">
+    <div id="filters">
+      <button class="filter-btn active" data-filter="all">Все <span class="filter-count">0</span></button>
+      <button class="filter-btn" data-filter="ozon">Ozon <span class="filter-count">0</span></button>
+      <button class="filter-btn" data-filter="wb">WB <span class="filter-count">0</span></button>
+      <button class="filter-btn" data-filter="ym">ЯМ <span class="filter-count">0</span></button>
+      <button class="filter-btn" data-filter="other">Другое <span class="filter-count">0</span></button>
+    </div>
+    <div id="search-box">
+      <input type="text" id="search-input" placeholder="Поиск по адресу или комментарию...">
+    </div>
+    <div id="pvz-list"></div>
+    <div id="list-empty">Ничего не найдено</div>
+  </div>
+
+  <!-- ADMIN PANEL -->
+  <div id="panel-admin" class="panel">
+    <div id="admin-panel">
+      <div class="form-section">
+        <h3>Добавить ПВЗ</h3>
+        <div class="form-group">
+          <label>Название</label>
+          <input type="text" id="new-name" placeholder="Название точки или ориентир">
+        </div>
+        <div class="form-group">
+          <label>Адрес</label>
+          <input type="text" id="new-addr" placeholder="Москва, ул. Пушкина, д. 1">
+        </div>
+        <div class="form-group">
+          <label>Тип</label>
+          <select id="new-type">
+            <option value="other">Другое</option>
+            <option value="ozon">Ozon</option>
+            <option value="wb">Wildberries</option>
+            <option value="ym">Яндекс Маркет</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Комментарий</label>
+          <textarea id="new-comment" placeholder="Часы работы, особенности..."></textarea>
+        </div>
+        <div id="geocode-status" class="geocode-status"></div>
+        <button class="btn btn-primary" id="add-btn" onclick="Admin.addPvz()">+ Добавить точку</button>
+      </div>
+      <div class="form-section">
+        <h3>Все точки</h3>
+        <div id="admin-list"></div>
+      </div>
+      <div class="form-section">
+        <h3>Аккаунт</h3>
+        <p style="font-size:12px;color:var(--muted);margin-bottom:10px" id="auth-email"></p>
+        <button class="btn btn-danger" style="width:100%;justify-content:center" onclick="Auth.logout()">Выйти</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MAP -->
+<div id="map-container">
+  <div id="map"></div>
+
+  <div id="map-search-bar">
+    <input type="text" id="map-search-input" placeholder="Поиск ПВЗ на карте..." onkeydown="if(event.key==='Enter') App.mapSearch()">
+    <button id="map-search-btn" onclick="App.mapSearch()">Найти</button>
+    <button id="map-search-clear" onclick="App.clearMapSearch()">×</button>
+  </div>
+  <div id="search-results-count"></div>
+
+  <div id="stats-bar">
+    <div class="stat"><span class="stat-num" id="stat-total">0</span><span class="stat-label">Всего</span></div>
+    <div class="stat"><span class="stat-num" id="stat-ozon" style="color:#6b9fff">0</span><span class="stat-label">Ozon</span></div>
+    <div class="stat"><span class="stat-num" id="stat-wb" style="color:#c084fc">0</span><span class="stat-label">WB</span></div>
+    <div class="stat"><span class="stat-num" id="stat-ym" style="color:#ffcc00">0</span><span class="stat-label">ЯМ</span></div>
+  </div>
+
+  <div id="info-popup" class="">
+    <button class="popup-close" onclick="UI.closePopup()">×</button>
+    <div id="popup-badge"></div>
+    <div id="popup-name"></div>
+    <div id="popup-addr"></div>
+    <div id="popup-comment"></div>
+  </div>
+
+  <!-- Mobile FAB -->
+  <button id="mobile-fab" onclick="UI.openMobileSidebar()">☰</button>
+</div>
+
+<!-- LOGIN MODAL -->
+<div id="login-overlay">
+  <div id="login-modal">
+    <div id="login-logo">📦</div>
+    <h2>ПВЗ Карта</h2>
+    <p>Войдите для доступа к админке</p>
+    <div class="form-group">
+      <label>Email</label>
+      <input type="email" id="login-email" placeholder="admin@example.com" onkeydown="if(event.key==='Enter') Auth.login()">
+    </div>
+    <div class="form-group">
+      <label>Пароль</label>
+      <input type="password" id="login-password" placeholder="••••••••" onkeydown="if(event.key==='Enter') Auth.login()">
+    </div>
+    <div id="login-error"></div>
+    <button class="btn btn-primary" id="login-btn" onclick="Auth.login()">Войти</button>
+    <button class="btn-skip" onclick="Auth.skipLogin()">Продолжить без входа →</button>
+  </div>
+</div>
+
+<!-- EDIT MODAL -->
+<div id="modal-overlay" onclick="Admin.closeModal(event)">
+  <div id="modal">
+    <h2>Редактировать ПВЗ</h2>
+    <button id="modal-close" onclick="Admin.closeModal()">×</button>
+    <input type="hidden" id="edit-id">
+    <div class="form-group"><label>Название</label><input type="text" id="edit-name"></div>
+    <div class="form-group"><label>Адрес</label><input type="text" id="edit-addr"></div>
+    <div class="form-group">
+      <label>Тип</label>
+      <select id="edit-type">
+        <option value="other">Другое</option>
+        <option value="ozon">Ozon</option>
+        <option value="wb">Wildberries</option>
+        <option value="ym">Яндекс Маркет</option>
+      </select>
+    </div>
+    <div class="form-group"><label>Комментарий</label><textarea id="edit-comment"></textarea></div>
+    <div id="edit-geocode-status" class="geocode-status"></div>
+    <button class="btn btn-primary" onclick="Admin.saveEdit()">Сохранить</button>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script src="js/storage.js"></script>
+<script src="js/geocoder.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/admin.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
