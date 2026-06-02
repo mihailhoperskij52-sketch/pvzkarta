@@ -60,6 +60,14 @@
           <input type="text" id="new-addr" placeholder="Москва, ул. Пушкина, д. 1">
         </div>
         <div class="form-group">
+          <label>Координаты <span style="color:var(--muted);font-weight:400;text-transform:none">(необязательно — если адрес не находит)</span></label>
+          <div style="display:flex;gap:6px">
+            <input type="text" id="new-coords" placeholder="55.7558, 37.6173" style="flex:1">
+            <button type="button" class="btn btn-edit" style="white-space:nowrap;padding:8px 10px" onclick="Admin.reverseGeocode('new')">← Адрес</button>
+          </div>
+          <div style="font-size:11px;color:var(--muted);margin-top:4px">Найди на <a href="https://yandex.ru/maps" target="_blank" style="color:var(--accent)">yandex.ru/maps</a> → правая кнопка → «Что здесь?»</div>
+        </div>
+        <div class="form-group">
           <label>Тип</label>
           <select id="new-type">
             <option value="other">Другое</option>
@@ -146,6 +154,13 @@
     <input type="hidden" id="edit-id">
     <div class="form-group"><label>Название</label><input type="text" id="edit-name"></div>
     <div class="form-group"><label>Адрес</label><input type="text" id="edit-addr"></div>
+    <div class="form-group">
+      <label>Координаты <span style="color:var(--muted);font-weight:400;text-transform:none">(необязательно)</span></label>
+      <div style="display:flex;gap:6px">
+        <input type="text" id="edit-coords" placeholder="55.7558, 37.6173" style="flex:1">
+        <button type="button" class="btn btn-edit" style="white-space:nowrap;padding:8px 10px" onclick="Admin.reverseGeocode('edit')">← Адрес</button>
+      </div>
+    </div>
     <div class="form-group">
       <label>Тип</label>
       <select id="edit-type">
