@@ -8,6 +8,7 @@ const UI = (() => {
   let searchQuery = '';
   let selectedId = null;
   let onFocus = null;
+  let isAdmin = false;
 
   function init(focusCallback) {
     onFocus = focusCallback;
@@ -29,8 +30,20 @@ const UI = (() => {
     Storage.onUpdate(() => {
       renderList();
       updateStats();
-      Admin.renderAdminList();
     });
+  }
+
+  function setAdmin(val) {
+    isAdmin = val;
+    renderList();
+    // Show/hide add form and logout
+    const addSection = document.getElementById('add-form-section');
+    const logoutSection = document.getElementById('logout-section');
+    if (addSection) addSection.style.display = val ? 'block' : 'none';
+    if (logoutSection) logoutSection.style.display = val ? 'block' : 'none';
+    // Show login button if not admin
+    const loginBtn = document.getElementById('login-btn-header');
+    if (loginBtn) loginBtn.style.display = val ? 'none' : 'block';
   }
 
   function renderList() {
@@ -47,7 +60,6 @@ const UI = (() => {
       return matchFilter && matchSearch;
     });
 
-    // Update filter counts
     document.querySelectorAll('.filter-btn').forEach(btn => {
       const f = btn.dataset.filter;
       const count = f === 'all' ? all.length : all.filter(p => p.type === f).length;
@@ -67,6 +79,10 @@ const UI = (() => {
         <div class="pvz-item-name">${pvz.name || pvz.address}</div>
         <div class="pvz-item-addr">${pvz.address}</div>
         ${pvz.comment ? `<div class="pvz-item-comment">${pvz.comment}</div>` : ''}
+        ${isAdmin ? `<div class="pvz-item-actions">
+          <button class="btn btn-edit" onclick="event.stopPropagation();Admin.openEdit('${pvz.id}')">✏️ Изменить</button>
+          <button class="btn btn-danger" onclick="event.stopPropagation();Admin.deletePvz('${pvz.id}')">🗑 Удалить</button>
+        </div>` : ''}
       `;
       div.addEventListener('click', () => {
         selectedId = pvz.id;
@@ -84,6 +100,19 @@ const UI = (() => {
     document.getElementById('popup-name').textContent = pvz.name || pvz.address;
     document.getElementById('popup-addr').textContent = pvz.address;
     document.getElementById('popup-comment').textContent = pvz.comment || 'Комментарий не добавлен';
+
+    // Admin actions in popup
+    const actionsEl = document.getElementById('popup-admin-actions');
+    if (isAdmin) {
+      actionsEl.innerHTML = `
+        <div class="popup-actions">
+          <button class="btn btn-edit" onclick="Admin.openEdit('${pvz.id}')">✏️ Изменить</button>
+          <button class="btn btn-danger" onclick="Admin.deletePvz('${pvz.id}')">🗑 Удалить</button>
+        </div>`;
+    } else {
+      actionsEl.innerHTML = '';
+    }
+
     document.getElementById('info-popup').classList.add('open');
     selectedId = pvz.id;
     renderList();
@@ -121,17 +150,9 @@ const UI = (() => {
     document.getElementById('mobile-overlay').classList.remove('open');
   }
 
-  function switchTab(tab) {
-    document.querySelectorAll('.tab-btn').forEach((b, i) => {
-      b.classList.toggle('active', (i === 0 && tab === 'list') || (i === 1 && tab === 'admin'));
-    });
-    document.getElementById('panel-list').classList.toggle('active', tab === 'list');
-    document.getElementById('panel-admin').classList.toggle('active', tab === 'admin');
-  }
-
   function badgeHtml(type) {
     return `<span class="pvz-badge ${BADGE_CLS[type] || BADGE_CLS.other}">${BADGE[type] || BADGE.other}</span>`;
   }
 
-  return { init, renderList, showPopup, closePopup, showToast, updateStats, openMobileSidebar, closeMobileSidebar, switchTab, badgeHtml };
+  return { init, setAdmin, renderList, showPopup, closePopup, showToast, updateStats, openMobileSidebar, closeMobileSidebar, badgeHtml };
 })();

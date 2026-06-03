@@ -1,21 +1,16 @@
-// app.js — map init, auth, placemarks
+// app.js — map, auth, placemarks
 
 const Auth = (() => {
   function init() {
     Storage.auth.onAuthStateChanged(user => {
       if (user) {
-        // Logged in — show admin tab
         document.getElementById('login-overlay').style.display = 'none';
-        document.getElementById('admin-tab-btn').style.display = 'block';
-        document.getElementById('auth-email').textContent = user.email;
-        document.getElementById('auth-indicator').innerHTML =
-          `<span class="auth-badge admin">👤 Админ</span>`;
+        document.getElementById('auth-indicator').innerHTML = `<span class="auth-badge admin">👤 Админ</span>`;
+        document.getElementById('auth-indicator').title = user.email;
+        UI.setAdmin(true);
       } else {
-        // Not logged in — hide admin tab, show map only
-        document.getElementById('admin-tab-btn').style.display = 'none';
-        document.getElementById('auth-indicator').innerHTML =
-          `<span class="auth-badge">👁 Просмотр</span>`;
-        UI.switchTab('list');
+        document.getElementById('auth-indicator').innerHTML = `<span class="auth-badge">👁 Просмотр</span>`;
+        UI.setAdmin(false);
       }
     });
   }
@@ -23,7 +18,7 @@ const Auth = (() => {
   async function login() {
     const email = document.getElementById('login-email').value.trim();
     const password = document.getElementById('login-password').value;
-    const btn = document.getElementById('login-btn');
+    const btn = document.getElementById('login-submit-btn');
     const errEl = document.getElementById('login-error');
 
     if (!email || !password) { errEl.textContent = 'Введите email и пароль'; return; }
@@ -55,7 +50,7 @@ const Auth = (() => {
 })();
 
 const App = (() => {
-  const MARKER_COLORS = { ozon: '#4b6fff', wb: '#a855f7', ym: '#eab308', other: '#ff6b35' };
+  const MARKER_COLORS = { ozon: '#4488ff', wb: '#bb44ff', ym: '#ffcc00', other: '#ff5500' };
   let myMap = null;
   let placemarks = {};
   let searchResults = null;
@@ -78,8 +73,17 @@ const App = (() => {
 
   function renderPlacemarks() {
     const all = Storage.getAll();
+    const ids = all.map(p => p.id);
 
-    // Add new, update moved
+    // Remove deleted
+    Object.keys(placemarks).forEach(id => {
+      if (!ids.includes(id)) {
+        myMap.geoObjects.remove(placemarks[id]);
+        delete placemarks[id];
+      }
+    });
+
+    // Add/update
     all.forEach(pvz => {
       if (!pvz.lat || !pvz.lng) return;
       if (placemarks[pvz.id]) {
@@ -91,21 +95,15 @@ const App = (() => {
         placemarks[pvz.id] = pm;
       }
     });
-
-    // Remove deleted
-    const ids = all.map(p => p.id);
-    Object.keys(placemarks).forEach(id => {
-      if (!ids.includes(id)) {
-        myMap.geoObjects.remove(placemarks[id]);
-        delete placemarks[id];
-      }
-    });
   }
 
   function createPlacemark(pvz) {
     const pm = new ymaps.Placemark(
       [pvz.lat, pvz.lng], {},
-      { preset: 'islands#circleIcon', iconColor: MARKER_COLORS[pvz.type] || MARKER_COLORS.other }
+      {
+        preset: 'islands#circleDotIcon',
+        iconColor: MARKER_COLORS[pvz.type] || MARKER_COLORS.other
+      }
     );
     pm.events.add('click', () => {
       const data = Storage.getById(pvz.id);
@@ -122,10 +120,7 @@ const App = (() => {
   }
 
   function removePlacemark(id) {
-    if (placemarks[id]) {
-      myMap.geoObjects.remove(placemarks[id]);
-      delete placemarks[id];
-    }
+    if (placemarks[id]) { myMap.geoObjects.remove(placemarks[id]); delete placemarks[id]; }
   }
 
   function refreshPlacemark(id) {
@@ -141,7 +136,6 @@ const App = (() => {
   function mapSearch() {
     const query = document.getElementById('map-search-input').value.trim();
     if (!query || !myMap) return;
-
     if (searchResults) { myMap.geoObjects.remove(searchResults); searchResults = null; }
 
     const countEl = document.getElementById('search-results-count');
